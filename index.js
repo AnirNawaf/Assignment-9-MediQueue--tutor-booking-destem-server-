@@ -10,7 +10,6 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// MongoDB URI
 const uri =
   process.env.MONGODB_URI ||
   "mongodb+srv://anirbishal08_db_user:0Ukt3OKmHDFmVfZD@cluster0.urz6tke.mongodb.net/?appName=Cluster0";
@@ -23,7 +22,6 @@ const client = new MongoClient(uri, {
   },
 });
 
-// JWT verification middleware
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader)
@@ -37,7 +35,7 @@ const verifyToken = (req, res, next) => {
   });
 };
 
-// Async function to connect to MongoDB
+
 async function run() {
   try {
     await client.connect();
@@ -48,13 +46,40 @@ async function run() {
     const tutorsCollection = db.collection("tutors");
     const bookingsCollection = db.collection("bookings");
 
-    // Example route: get all users
     app.get("/users", async (req, res) => {
       const users = await userCollection.find().toArray();
       res.send(users);
     });
+// a1 tutorpage backcd
 
-    // Example protected route
+    app.get("/tutors", async (req, res) => {
+      const { search, startDate, endDate, limit } = req.query;
+      const query = {};
+      if (search) query.tutorName = { $regex: search, $options: "i" };
+      if (startDate && endDate) query.sessionStartDate = { $gte: startDate, $lte: endDate };
+      let cursor = tutorsCollection.find(query).sort({ createdAt: -1 });
+      if (limit) cursor = cursor.limit(Number(limit));
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.get("/tutors/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        if (!ObjectId.isValid(id)) return res.status(400).send({ message: "Invalid tutor ID" });
+
+        const tutor = await tutorsCollection.findOne({ _id: new ObjectId(id) });
+        if (!tutor) return res.status(404).send({ message: "Tutor not found" });
+
+        res.send(tutor);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to load tutor details" });
+      }
+    });
+
+// a2 tutorpage backcd 
+    
     app.get("/bookings", verifyToken, async (req, res) => {
       const bookings = await bookingsCollection.find().toArray();
       res.send(bookings);
@@ -67,7 +92,7 @@ async function run() {
 
 run().catch(console.dir);
 
-// Root route
+
 app.get("/", (req, res) => {
   res.send("MediQueue server is running");
 });
