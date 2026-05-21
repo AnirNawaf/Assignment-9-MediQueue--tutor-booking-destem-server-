@@ -175,6 +175,28 @@ app.patch("/users/update-password", async (req, res) => {
     });
 
 
+    
+   
+    //f Delete Tutor
+    
+    app.delete("/tutors/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        if (!ObjectId.isValid(id)) return res.status(400).send({ message: "Invalid tutor ID" });
+
+        const result = await tutorsCollection.deleteOne({ _id: new ObjectId(id) });
+        if (result.deletedCount === 0) return res.status(404).send({ message: "Tutor not found" });
+
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to delete tutor" });
+      }
+    });
+
+   
+
+
 
 
    
