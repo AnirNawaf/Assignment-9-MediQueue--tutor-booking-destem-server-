@@ -194,14 +194,21 @@ app.patch("/users/update-password", async (req, res) => {
       }
     });
 
+    //g Bookings
    
+    app.post("/bookings", async (req, res) => {
+      try {
+        const booking = req.body;
+        booking.status = "booked";
+        const result = await bookingsCollection.insertOne(booking);
+        res.send({ insertedId: result.insertedId });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to create booking" });
+      }
+    });
 
 
-
-
-   
- 
-   
 
     app.get("/my-bookings", async (req, res) => {
       try {
