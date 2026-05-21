@@ -79,6 +79,34 @@ async function run() {
     });
 
 // a2 tutorpage backcd 
+
+ // b1 Add Tutor
+    
+    app.post("/tutors", async (req, res) => {
+      try {
+        const tutor = req.body;
+        tutor.createdAt = new Date();
+        const result = await tutorsCollection.insertOne(tutor);
+        res.send({ insertedId: result.insertedId });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to add tutor" });
+      }
+    });
+    // b2 Add Tutor
+
+
+
+
+
+
+
+
+
+
+
+
+    
     
     app.get("/bookings", verifyToken, async (req, res) => {
       const bookings = await bookingsCollection.find().toArray();
