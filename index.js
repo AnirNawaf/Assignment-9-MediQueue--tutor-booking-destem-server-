@@ -151,6 +151,32 @@ app.patch("/users/update-password", async (req, res) => {
       }
     });
 
+
+
+       //e Update Tutor
+    
+    app.patch("/tutors/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        if (!ObjectId.isValid(id)) return res.status(400).send({ message: "Invalid tutor ID" });
+
+        const updatedTutor = req.body;
+        delete updatedTutor._id;
+
+        const result = await tutorsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { ...updatedTutor, updatedAt: new Date() } }
+        );
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to update tutor" });
+      }
+    });
+
+
+
+
    
  
    
