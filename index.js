@@ -96,6 +96,55 @@ async function run() {
     // b2 Add Tutor
 
 
+    // c1 Local Register/Login 
+    
+    app.post("/register-local", async (req, res) => {
+      const { email, password, name } = req.body;
+      const existing = await userCollection.findOne({ email });
+      if (existing) return res.status(400).send({ message: "User already exists" });
+
+      const result = await userCollection.insertOne({ email, password, name });
+      const token = jwt.sign({ email }, process.env.JWT_SECRET || "mysecretkey", { expiresIn: "7d" });
+
+      res.send({ token, user: { email, name } });
+    });
+
+    app.post("/login-local", async (req, res) => {
+      const { email, password } = req.body;
+      const user = await userCollection.findOne({ email });
+      if (!user || user.password !== password)
+        return res.status(401).send({ message: "Invalid credentials" });
+
+      const token = jwt.sign({ email }, process.env.JWT_SECRET || "mysecretkey", { expiresIn: "7d" });
+      res.send({ token, user: { email, name: user.name } });
+    });
+
+    // Update password route
+app.patch("/users/update-password", async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    if (!email || !newPassword) return res.status(400).send({ message: "Email or newPassword missing" });
+
+    const result = await client.db("simpole").collection("UserModel").updateOne(
+      { email },
+      { $set: { password: newPassword } }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).send({ message: "User not found or password unchanged" });
+    }
+
+    res.send({ success: true, message: "Password updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Failed to update password" });
+  }
+});
+    // c2 Local Register/Login 
+
+
+
+
 
 
 
