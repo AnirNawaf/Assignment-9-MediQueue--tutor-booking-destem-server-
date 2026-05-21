@@ -24,8 +24,7 @@ const client = new MongoClient(uri, {
 
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader)
-    return res.status(401).send({ message: "Unauthorized access" });
+  if (!authHeader) return res.status(401).send({ message: "Unauthorized access" });
 
   const token = authHeader.split(" ")[1];
   jwt.verify(token, process.env.JWT_SECRET || "mysecretkey", (err, decoded) => {
@@ -35,23 +34,63 @@ const verifyToken = (req, res, next) => {
   });
 };
 
-
 async function run() {
   try {
     await client.connect();
-    console.log("MongoDB connected successfully!");
 
-    const db = client.db("simpole"); // database name
+    const db = client.db("simpole");
     const userCollection = db.collection("UserModel");
     const tutorsCollection = db.collection("tutors");
     const bookingsCollection = db.collection("bookings");
 
-    app.get("/users", async (req, res) => {
-      const users = await userCollection.find().toArray();
-      res.send(users);
-    });
-// a1 tutorpage backcd
 
+    // a1 Local Regis& Log
+
+    app.post("/register-local", async (req, res) => {
+      const { email, password, name } = req.body;
+      const existing = await userCollection.findOne({ email });
+      if (existing) return res.status(400).send({ message: "User already exists" });
+
+      const result = await userCollection.insertOne({ email, password, name });
+      const token = jwt.sign({ email }, process.env.JWT_SECRET || "mysecretkey", { expiresIn: "7d" });
+
+      res.send({ token, user: { email, name } });
+    });
+
+    app.post("/login-local", async (req, res) => {
+      const { email, password } = req.body;
+      const user = await userCollection.findOne({ email });
+      if (!user || user.password !== password)
+        return res.status(401).send({ message: "Invalid credentials" });
+
+      const token = jwt.sign({ email }, process.env.JWT_SECRET || "mysecretkey", { expiresIn: "7d" });
+      res.send({ token, user: { email, name: user.name } });
+    });
+
+    app.patch("/users/update-password", async (req, res) => {
+      try {
+        const { email, newPassword } = req.body;
+        if (!email || !newPassword) return res.status(400).send({ message: "Email or newPassword missing" });
+
+        const result = await client.db("simpole").collection("UserModel").updateOne(
+          { email },
+          { $set: { password: newPassword } }
+        );
+
+        if (result.modifiedCount === 0) {
+          return res.status(404).send({ message: "User not found or password unchanged" });
+        }
+
+        res.send({ success: true, message: "Password updated successfully" });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Failed to update password" });
+      }
+    });
+
+    
+    // a2 Tuto Route
+ 
     app.get("/tutors", async (req, res) => {
       const { search, startDate, endDate, limit } = req.query;
       const query = {};
@@ -78,10 +117,7 @@ async function run() {
       }
     });
 
-// a2 tutorpage backcd 
-
- // b1 Add Tutor
-    
+    // c Add Tutor22
     app.post("/tutors", async (req, res) => {
       try {
         const tutor = req.body;
@@ -93,82 +129,57 @@ async function run() {
         res.status(500).send({ message: "Failed to add tutor" });
       }
     });
-    // b2 Add Tutor
-
-
-    // c1 Local Register/Login 
-    
-    app.post("/register-local", async (req, res) => {
-      const { email, password, name } = req.body;
-      const existing = await userCollection.findOne({ email });
-      if (existing) return res.status(400).send({ message: "User already exists" });
-
-      const result = await userCollection.insertOne({ email, password, name });
-      const token = jwt.sign({ email }, process.env.JWT_SECRET || "mysecretkey", { expiresIn: "7d" });
-
-      res.send({ token, user: { email, name } });
-    });
-
-    app.post("/login-local", async (req, res) => {
-      const { email, password } = req.body;
-      const user = await userCollection.findOne({ email });
-      if (!user || user.password !== password)
-        return res.status(401).send({ message: "Invalid credentials" });
-
-      const token = jwt.sign({ email }, process.env.JWT_SECRET || "mysecretkey", { expiresIn: "7d" });
-      res.send({ token, user: { email, name: user.name } });
-    });
-
-    // Update password route
-app.patch("/users/update-password", async (req, res) => {
-  try {
-    const { email, newPassword } = req.body;
-    if (!email || !newPassword) return res.status(400).send({ message: "Email or newPassword missing" });
-
-    const result = await client.db("simpole").collection("UserModel").updateOne(
-      { email },
-      { $set: { password: newPassword } }
-    );
-
-    if (result.modifiedCount === 0) {
-      return res.status(404).send({ message: "User not found or password unchanged" });
-    }
-
-    res.send({ success: true, message: "Password updated successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: "Failed to update password" });
-  }
-});
-    // c2 Local Register/Login 
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     
-    
-    app.get("/bookings", verifyToken, async (req, res) => {
-      const bookings = await bookingsCollection.find().toArray();
-      res.send(bookings);
+
+    app.get("/my-bookings", async (req, res) => {
+      try {
+        const email = req.query.email;
+        const bookings = await bookingsCollection.find({ studentEmail: email }).toArray();
+        res.send(bookings);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to load bookings" });
+      }
     });
 
-  } catch (error) {
-    console.error(error);
+    app.patch("/bookings/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const result = await bookingsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: "cancelled" } }
+        );
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to cancel booking" });
+      }
+    });
+
+    app.delete("/bookings/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        if (!ObjectId.isValid(id)) return res.status(400).send({ message: "Invalid ID" });
+
+        const result = await bookingsCollection.deleteOne({ _id: new ObjectId(id) });
+        if (result.deletedCount === 0) return res.status(404).send({ message: "Booking not found" });
+
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to delete booking" });
+      }
+    });
+
+    await client.db("admin").command({ ping: 1 });
+    console.log("MongoDB connected successfully!");
+  } finally {
+   
   }
 }
 
 run().catch(console.dir);
-
 
 app.get("/", (req, res) => {
   res.send("MediQueue server is running");
@@ -177,3 +188,4 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`MediQueue server running on port ${port}`);
 });
+
