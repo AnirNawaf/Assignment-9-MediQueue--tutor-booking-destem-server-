@@ -22,6 +22,7 @@ const client = new MongoClient(uri, {
   },
 });
 
+
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).send({ message: "Unauthorized access" });
@@ -43,9 +44,9 @@ async function run() {
     const tutorsCollection = db.collection("tutors");
     const bookingsCollection = db.collection("bookings");
 
-
-    // a1 Local Regis& Log
-
+   
+    //a Local Register/Login
+   
     app.post("/register-local", async (req, res) => {
       const { email, password, name } = req.body;
       const existing = await userCollection.findOne({ email });
@@ -67,30 +68,32 @@ async function run() {
       res.send({ token, user: { email, name: user.name } });
     });
 
-    app.patch("/users/update-password", async (req, res) => {
-      try {
-        const { email, newPassword } = req.body;
-        if (!email || !newPassword) return res.status(400).send({ message: "Email or newPassword missing" });
+   
 
-        const result = await client.db("simpole").collection("UserModel").updateOne(
-          { email },
-          { $set: { password: newPassword } }
-        );
+app.patch("/users/update-password", async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    if (!email || !newPassword) return res.status(400).send({ message: "Email or newPassword missing" });
 
-        if (result.modifiedCount === 0) {
-          return res.status(404).send({ message: "User not found or password unchanged" });
-        }
+    const result = await client.db("simpole").collection("UserModel").updateOne(
+      { email },
+      { $set: { password: newPassword } }
+    );
 
-        res.send({ success: true, message: "Password updated successfully" });
-      } catch (err) {
-        console.error(err);
-        res.status(500).send({ message: "Failed to update password" });
-      }
-    });
+    if (result.modifiedCount === 0) {
+      return res.status(404).send({ message: "User not found or password unchanged" });
+    }
+
+    res.send({ success: true, message: "Password updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Failed to update password" });
+  }
+});
 
     
-    // a2 Tuto Route
- 
+    //b Tutors Routes
+    
     app.get("/tutors", async (req, res) => {
       const { search, startDate, endDate, limit } = req.query;
       const query = {};
@@ -117,7 +120,9 @@ async function run() {
       }
     });
 
-    // c Add Tutor22
+   
+    //c Add Tutor222222222
+   
     app.post("/tutors", async (req, res) => {
       try {
         const tutor = req.body;
@@ -130,7 +135,25 @@ async function run() {
       }
     });
 
+   
+    //d My Tutors
     
+    app.get("/my-tutors", async (req, res) => {
+      try {
+        const email = req.query.email;
+        if (!email) return res.status(400).send({ message: "Email query missing" });
+
+        const result = await tutorsCollection.find({ creatorEmail: email }).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to load your tutors" });
+      }
+    });
+
+   
+ 
+   
 
     app.get("/my-bookings", async (req, res) => {
       try {
@@ -188,4 +211,6 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`MediQueue server running on port ${port}`);
 });
+
+
 
