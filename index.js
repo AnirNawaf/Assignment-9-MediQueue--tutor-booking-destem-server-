@@ -10,11 +10,13 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-const uri =
-  process.env.MONGODB_URI ||
-  "mongodb+srv://anirbishal08_db_user:0Ukt3OKmHDFmVfZD@cluster0.urz6tke.mongodb.net/?appName=Cluster0";
+require("dotenv").config();
 
-const client = new MongoClient(uri, {
+
+// শুধু .env থেকে URI নেবে
+const uri = process.env.MONGODB_URI;
+  
+const client = new MongoClient(process.env.MONGODB_URI, {
   serverApi: {
     version: ServerApiVersion.v1,
     strict: true,
@@ -23,6 +25,7 @@ const client = new MongoClient(uri, {
 });
 
 
+// JWT verify middleware (optional)
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).send({ message: "Unauthorized access" });
@@ -44,9 +47,8 @@ async function run() {
     const tutorsCollection = db.collection("tutors");
     const bookingsCollection = db.collection("bookings");
 
-   
-    //a Local Register/Login
-   
+    //a Local Reg/Log
+
     app.post("/register-local", async (req, res) => {
       const { email, password, name } = req.body;
       const existing = await userCollection.findOne({ email });
@@ -67,8 +69,6 @@ async function run() {
       const token = jwt.sign({ email }, process.env.JWT_SECRET || "mysecretkey", { expiresIn: "7d" });
       res.send({ token, user: { email, name: user.name } });
     });
-
-   
 
 app.patch("/users/update-password", async (req, res) => {
   try {
@@ -91,110 +91,100 @@ app.patch("/users/update-password", async (req, res) => {
   }
 });
 
-    
-    //b Tutors Routes
-    
-    app.get("/tutors", async (req, res) => {
-      const { search, startDate, endDate, limit } = req.query;
-      const query = {};
-      if (search) query.tutorName = { $regex: search, $options: "i" };
-      if (startDate && endDate) query.sessionStartDate = { $gte: startDate, $lte: endDate };
-      let cursor = tutorsCollection.find(query).sort({ createdAt: -1 });
-      if (limit) cursor = cursor.limit(Number(limit));
-      const result = await cursor.toArray();
-      res.send(result);
-    });
+// b Tutors Ro
+app.get("/tutors", async (req, res) => {
+  try {
+    const { search, startDate, endDate, limit } = req.query;
+    const query = {};
 
-    app.get("/tutors/:id", async (req, res) => {
-      try {
-        const id = req.params.id;
-        if (!ObjectId.isValid(id)) return res.status(400).send({ message: "Invalid tutor ID" });
+    if (search) query.tutorName = { $regex: search, $options: "i" };
+    if (startDate && endDate) query.sessionStartDate = { $gte: startDate, $lte: endDate };
 
-        const tutor = await tutorsCollection.findOne({ _id: new ObjectId(id) });
-        if (!tutor) return res.status(404).send({ message: "Tutor not found" });
+    let cursor = tutorsCollection.find(query).sort({ createdAt: -1 });
+    if (limit) cursor = cursor.limit(Number(limit));
 
-        res.send(tutor);
-      } catch (error) {
-        console.error(error);
-        res.status(500).send({ message: "Failed to load tutor details" });
-      }
-    });
-
-   
-    //c Add Tutor222222222
-   
-    app.post("/tutors", async (req, res) => {
-      try {
-        const tutor = req.body;
-        tutor.createdAt = new Date();
-        const result = await tutorsCollection.insertOne(tutor);
-        res.send({ insertedId: result.insertedId });
-      } catch (error) {
-        console.error(error);
-        res.status(500).send({ message: "Failed to add tutor" });
-      }
-    });
-
-   
-    //d My Tutors
-    
-    app.get("/my-tutors", async (req, res) => {
-      try {
-        const email = req.query.email;
-        if (!email) return res.status(400).send({ message: "Email query missing" });
-
-        const result = await tutorsCollection.find({ creatorEmail: email }).toArray();
-        res.send(result);
-      } catch (error) {
-        console.error(error);
-        res.status(500).send({ message: "Failed to load your tutors" });
-      }
-    });
+    const result = await cursor.toArray();
+    res.send(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Failed to load tutors" });
+  }
+});
 
 
+//c sin tutor id
 
-       //e Update Tutor
-    
-    app.patch("/tutors/:id", async (req, res) => {
-      try {
-        const id = req.params.id;
-        if (!ObjectId.isValid(id)) return res.status(400).send({ message: "Invalid tutor ID" });
+app.get("/tutors/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!ObjectId.isValid(id)) return res.status(400).send({ message: "Invalid tutor ID" });
 
-        const updatedTutor = req.body;
-        delete updatedTutor._id;
+    const tutor = await client.db("simpole").collection("tutors").findOne({ _id: new ObjectId(id) });
 
-        const result = await tutorsCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { ...updatedTutor, updatedAt: new Date() } }
-        );
-        res.send(result);
-      } catch (error) {
-        console.error(error);
-        res.status(500).send({ message: "Failed to update tutor" });
-      }
-    });
+    if (!tutor) return res.status(404).send({ message: "Tutor not found" });
+
+    res.send(tutor);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: "Failed to load tutor details" });
+  }
+});
+
+//  d My Tutors
+
+app.get("/my-tutors", async (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) return res.status(400).send({ message: "Email query missing" });
+
+    const result = await tutorsCollection.find({ creatorEmail: email }).toArray();
+    res.send(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Failed to load your tutors" });
+  }
+});
+
+//e UpTutor
+
+app.patch("/tutors/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!ObjectId.isValid(id)) return res.status(400).send({ message: "Invalid tutor ID" });
+
+    const updatedTutor = req.body;
+    delete updatedTutor._id;
+
+    const result = await tutorsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { ...updatedTutor, updatedAt: new Date() } }
+    );
+    res.send(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Failed to update tutor" });
+  }
+});
 
 
-    
-   
-    //f Delete Tutor
-    
-    app.delete("/tutors/:id", async (req, res) => {
-      try {
-        const id = req.params.id;
-        if (!ObjectId.isValid(id)) return res.status(400).send({ message: "Invalid tutor ID" });
+//f DeTutor
 
-        const result = await tutorsCollection.deleteOne({ _id: new ObjectId(id) });
-        if (result.deletedCount === 0) return res.status(404).send({ message: "Tutor not found" });
+app.delete("/tutors/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!ObjectId.isValid(id)) return res.status(400).send({ message: "Invalid tutor ID" });
 
-        res.send(result);
-      } catch (error) {
-        console.error(error);
-        res.status(500).send({ message: "Failed to delete tutor" });
-      }
-    });
+    const result = await tutorsCollection.deleteOne({ _id: new ObjectId(id) });
+    if (result.deletedCount === 0) return res.status(404).send({ message: "Tutor not found" });
 
-    //g Bookings
+    res.send(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: "Failed to delete tutor" });
+  }
+});
+  
+    //g Boki
    
     app.post("/bookings", async (req, res) => {
       try {
@@ -207,8 +197,6 @@ app.patch("/users/update-password", async (req, res) => {
         res.status(500).send({ message: "Failed to create booking" });
       }
     });
-
-
 
     app.get("/my-bookings", async (req, res) => {
       try {
@@ -253,7 +241,7 @@ app.patch("/users/update-password", async (req, res) => {
     await client.db("admin").command({ ping: 1 });
     console.log("MongoDB connected successfully!");
   } finally {
-   
+    
   }
 }
 
