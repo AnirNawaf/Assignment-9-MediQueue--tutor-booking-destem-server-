@@ -10,12 +10,10 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-require("dotenv").config();
 
+  require("dotenv").config();
+console.log("MONGODB_URI:", process.env.MONGODB_URI);
 
-// শুধু .env থেকে URI নেবে
-const uri = process.env.MONGODB_URI;
-  
 const client = new MongoClient(process.env.MONGODB_URI, {
   serverApi: {
     version: ServerApiVersion.v1,
